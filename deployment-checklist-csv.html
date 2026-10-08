@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deployment Checklist</title>
+<style>
+/* Layout: story list rail on the left, one story's promotion path on the right, grouped by environment stage. */
+:root{
+  --bg:#ffffff; --bg2:#fff6dc; --done-tint:#e3f5f4; --shadow:0 6px 20px rgba(31,114,115,.12); --band1:#359FA0; --band2:#8AD6D1; --surface:#ffffff; --sunken:#f1f7f7; --line:#c6dfde;
+  --fg:#10302f; --muted:#4a6a69; --accent:#359FA0; --accent-soft:#8AD6D1; --on-accent:#06282a;
+  --done:#359FA0; --done-ink:#1f7273; --cur:#FF8C52; --next:#FF8C52; --on-next:#2a1200; --next-soft:#FFF0C5; --danger:#b3261e;
+  --display:"Segoe UI",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Segoe UI",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:Consolas,ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:24px 48px;display:grid;gap:20px}
+header.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px}
+h1{font-family:var(--display);font-size:26px;margin:0;letter-spacing:.01em}
+.sub{color:var(--muted);margin:0}
+.cols{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:760px){.cols{grid-template-columns:minmax(0,1fr)}}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=text],select{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0;width:100%}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.btn.small{font-size:13px;padding:4px 9px}
+.btn.danger{color:var(--danger)}
+
+/* rail */
+.rail{display:grid;gap:14px}
+.newstory{display:grid;gap:8px}
+.newstory .row{display:flex;gap:8px}
+.newstory select{width:auto;flex:1}
+.list{display:grid;gap:6px;list-style:none;margin:0;padding:0}
+.item{width:100%;text-align:left;background:transparent;border:1px solid transparent;border-radius:8px;padding:9px 11px;cursor:pointer;display:grid;gap:6px}
+.item:hover{background:var(--sunken)}
+.item[aria-current=true]{background:var(--sunken);border-color:var(--line)}
+.item .nm{font-weight:600;overflow-wrap:anywhere}
+.item .meta{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);font-family:var(--mono)}
+.bar{height:4px;background:var(--sunken);border-radius:2px;overflow:hidden}
+.item[aria-current=true] .bar,.item:hover .bar{background:var(--line)}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar i.full{background:var(--done)}
+.hint{color:var(--muted);font-size:13px;margin:0}
+
+/* detail */
+.detail{display:grid;gap:18px;min-width:0}
+.summary{border-bottom:1px solid var(--line);padding:0 0 16px;display:grid;gap:14px}
+.sumtop{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-start;justify-content:space-between}
+.sumtop h2{font-family:var(--display);font-size:22px;margin:0;overflow-wrap:anywhere;text-wrap:balance}
+.sumtop .acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.status{font-size:14px;color:var(--muted)}
+.status b{color:var(--fg)}
+.stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.stages{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stage{display:grid;gap:5px}
+.stage .t{font-size:12px;font-weight:600}
+.stage .c{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.stage.done .t{color:var(--done-ink)}
+.stage .bar{height:6px;background:var(--sunken)}
+.stage.cur .bar i{background:var(--cur)} .stage.done .bar i{background:var(--done)}
+
+.group{display:grid;gap:8px}
+.ghead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.ghead h3{margin:0;font-size:15px;font-weight:600}
+.ghead span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.step{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;padding:10px;border-radius:8px;align-items:start}
+.step.next{background:var(--next-soft)}
+.step input[type=checkbox]{width:20px;height:20px;margin:1px 0 0;accent-color:var(--done);cursor:pointer}
+.step .ttl{font-weight:500;cursor:pointer}
+.step.done .ttl{color:var(--muted)}
+.step .n{font-family:var(--mono);font-size:12px;color:var(--muted);margin-right:6px}
+.pill{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:1px 8px;margin-left:6px;vertical-align:1px}
+.pill.nx{background:var(--next);color:var(--on-next)}
+.pill.who{background:var(--accent-soft);color:var(--fg)}
+.step .body{display:grid;gap:6px;min-width:0}
+.step .extra{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.step .extra input{flex:1 1 180px;max-width:340px;font-family:var(--mono);font-size:13px;padding:4px 8px}
+.step .ts{font-family:var(--mono);font-size:12px;color:var(--done-ink)}
+.mail{background:var(--sunken);border:1px solid var(--line);border-radius:6px;padding:10px;font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:8px;padding:28px 20px;color:var(--muted)}
+.empty b{color:var(--fg);display:block;font-size:16px;margin-bottom:4px}
+.note{font-size:13px;border-radius:6px;padding:8px 11px;background:var(--next-soft);color:var(--fg)}
+.confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+
+/* plain light treatment */
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.sumtop h2{font-weight:700}
+.stage.cur .t{color:var(--fg)}
+.step{border-bottom:1px solid var(--line);border-radius:0}
+.step.next{border-radius:6px;border-bottom-color:transparent}
+.ghead{border-bottom:0}
+.empty{text-align:center}
+:root{color-scheme:light}
+.step input[type=checkbox]{appearance:none;-webkit-appearance:none;width:20px;height:20px;border-radius:5px;border:1.5px solid var(--accent);background:#fff;display:grid;place-items:center;margin:1px 0 0}
+.step input[type=checkbox]:checked{background:var(--accent)}
+.step input[type=checkbox]:checked::after{content:"";width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+
+/* file bar */
+body{margin:0}
+[hidden]{display:none!important}
+.topbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
+.whoami{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.whoami input{width:150px}
+.filebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--sunken)}
+.filebar .fname{font-weight:600;overflow-wrap:anywhere}
+.filebar .fstate{font-size:13px;color:var(--muted)}
+.filebar .fstate.bad{color:var(--danger)}
+.filebar .grow{flex:1 1 auto;min-width:0;display:grid;gap:2px}
+.filebar .acts{display:flex;flex-wrap:wrap;gap:8px}
+.note.bad{background:#fde7e5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <h1>Deployment Checklist</h1>
+    <label class="whoami" for="userName">Your name <input type="text" id="userName" maxlength="40" placeholder="Name"></label>
+  </header>
+
+  <section class="filebar" aria-label="CSV file">
+    <div class="grow">
+      <span class="fname" id="fileName">No CSV file open</span>
+      <span class="fstate" id="fileState">Open your CSV file to load the stories. Every change is saved back to it.</span>
+    </div>
+    <div class="acts" id="fsActs">
+      <button class="btn" type="button" id="reconnectBtn" hidden>Reopen</button>
+      <button class="btn primary" type="button" id="openBtn">Open CSV</button>
+      <button class="btn" type="button" id="newBtn">New CSV</button>
+      <button class="btn" type="button" id="retryBtn" hidden>Retry save</button>
+    </div>
+    <div class="acts" id="fallbackActs" hidden>
+      <button class="btn primary" type="button" id="loadBtn">Load CSV</button>
+      <button class="btn" type="button" id="downloadBtn">Download CSV</button>
+      <input type="file" id="fileInput" accept=".csv,text/csv" hidden>
+    </div>
+  </section>
+
+  <div id="note" class="note" hidden></div>
+
+  <div class="cols">
+    <aside class="rail">
+      <form class="newstory" id="newForm" autocomplete="off">
+        <label class="label" for="newName">New story</label>
+        <input type="text" id="newName" placeholder="Story name" maxlength="120" required>
+        <div class="row">
+          <select id="newTarget" aria-label="Target branch">
+            <option value="release">release</option>
+            <option value="hotfix">hotfix</option>
+          </select>
+          <button class="btn primary" type="submit">Add</button>
+        </div>
+      </form>
+      <div class="label" id="listLabel">Stories</div>
+      <ul class="list" id="list"></ul>
+    </aside>
+    <main class="detail" id="detail"></main>
+  </div>
+</div>
+
+<script>
+const STAGES = [
+  {id:'lower', name:'Lower env'},
+  {id:'e2e',   name:'Master → E2E'},
+  {id:'uat',   name:'Release → UAT'},
+  {id:'prod',  name:'Prod'}
+];
+const mrLine = r => r ? 'MR: ' + r : 'MR: <paste MR link>';
+const buildLine = r => r ? 'Build: ' + r : 'Build: <build number / link>';
+const STEPS = [
+  {id:'qa_lower', stage:'lower', who:'QA', t:()=>'QA confirmation: lower env'},
+  {id:'build_lower', stage:'lower', ref:'Build no.', t:()=>'Lower env build success'},
+
+  {id:'mr_master', stage:'e2e', ref:'MR link', t:()=>'MR to master'},
+  {id:'mail_mr_master', stage:'e2e', who:'DevOps', t:()=>'Mail MR to DevOps',
+    mail:s=>({to:'DevOps', sub:`MR to master: ${s.name}`,
+      body:`Hi team,\n\nPlease review and merge the MR below to master.\n\nStory: ${s.name}\n${mrLine(s.refs.mr_master)}\n\nQA has confirmed testing on the lower environment and the branch build is successful.\n\nThanks`})},
+  {id:'build_master', stage:'e2e', ref:'Build no.', t:()=>'Build on master'},
+  {id:'mail_deploy_e2e', stage:'e2e', who:'DevOps', t:()=>'Mail DevOps: deploy to E2E',
+    mail:s=>({to:'DevOps', sub:`Deploy to E2E: ${s.name}`,
+      body:`Hi team,\n\nThe master build is successful. Please deploy it to the E2E environment.\n\nStory: ${s.name}\n${buildLine(s.refs.build_master)}\n\nPlease confirm once the deployment is done.\n\nThanks`})},
+  {id:'mail_qa_e2e', stage:'e2e', who:'QA', t:()=>'Mail QA: start E2E testing',
+    mail:s=>({to:'QA', sub:`Ready for E2E testing: ${s.name}`,
+      body:`Hi team,\n\nThe build is now deployed on E2E. Please start testing and share your confirmation.\n\nStory: ${s.name}\n${buildLine(s.refs.build_master)}\n\nThanks`})},
+  {id:'qa_e2e', stage:'e2e', who:'QA', t:()=>'QA confirmation: E2E'},
+
+  {id:'mr_release', stage:'uat', ref:'MR link', t:s=>`MR to ${s.target}`},
+  {id:'mail_mr_release', stage:'uat', who:'DevOps', t:()=>'Mail MR to DevOps',
+    mail:s=>({to:'DevOps', sub:`MR to ${s.target}: ${s.name}`,
+      body:`Hi team,\n\nPlease accept the MR below to the ${s.target} branch.\n\nStory: ${s.name}\n${mrLine(s.refs.mr_release)}\n\nQA has confirmed testing on E2E.\n\nThanks`})},
+  {id:'build_release', stage:'uat', ref:'Build no.', t:s=>`Build on ${s.target}`},
+  {id:'mail_deploy_uat', stage:'uat', who:'DevOps', t:()=>'Mail DevOps: deploy to UAT',
+    mail:s=>({to:'DevOps', sub:`Deploy to UAT: ${s.name}`,
+      body:`Hi team,\n\nThe ${s.target} build is successful. Please deploy it to the UAT environment.\n\nStory: ${s.name}\n${buildLine(s.refs.build_release)}\n\nPlease confirm once the deployment is done.\n\nThanks`})},
+  {id:'mail_qa_uat', stage:'uat', who:'QA', t:()=>'Mail QA: start UAT testing',
+    mail:s=>({to:'QA', sub:`Ready for UAT testing: ${s.name}`,
+      body:`Hi team,\n\nThe build is now deployed on UAT. Please start testing and share your sign-off for production.\n\nStory: ${s.name}\n${buildLine(s.refs.build_release)}\n\nThanks`})},
+
+  {id:'qa_signoff', stage:'prod', who:'QA', t:()=>'QA sign-off for prod'}
+];
+
+/* ---------- state ---------- */
+let stories = {};          // id -> {name,target,created,updated,updatedBy,done:{stepId:{at,by}},refs:{}}
+let selected = null, openMail = null, confirmDel = false, pendingRender = false;
+let handle = null, lastModified = 0, busy = false, dirty = false, queue = Promise.resolve();
+const FS = 'showOpenFilePicker' in window;
+const REF_STEPS = STEPS.filter(x => x.ref);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const count = s => STEPS.filter(x => s.done[x.id]).length;
+const pad = n => String(n).padStart(2, '0');
+const stamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const me = () => $('userName').value.trim() || 'Unknown';
+
+function note(msg, bad){ const n = $('note'); n.textContent = msg || ''; n.hidden = !msg; n.classList.toggle('bad', !!bad); }
+function fileState(msg, bad){ const s = $('fileState'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
+
+/* ---------- CSV ---------- */
+// Columns: id, story, target, created, updated, updated_by, one column per step (done "YYYY-MM-DD HH:MM | Name"), ref_<step> for steps with a link / build no.
+const HEADERS = ['id','story','target','created','updated','updated_by', ...STEPS.map(x => x.id), ...REF_STEPS.map(x => 'ref_' + x.id)];
+
+function parseCsv(text){
+  text = text.replace(/^﻿/, '');
+  const rows = []; let row = [], field = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i+1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i+1] === '\n') i++;
+      row.push(field); field = ''; rows.push(row); row = [];
+    } else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(v => v.trim() !== ''));
+}
+function csvToStories(text){
+  const rows = parseCsv(text); const out = {};
+  if (!rows.length) return out;
+  const head = rows[0].map(h => h.trim().toLowerCase());
+  if (!head.includes('story')) throw new Error('This file has no "story" column, so it does not look like a checklist CSV.');
+  const col = name => head.indexOf(name);
+  rows.slice(1).forEach((r, i) => {
+    const get = name => { const k = col(name); return k >= 0 ? (r[k] || '').trim() : ''; };
+    const name = get('story'); if (!name) return;
+    const id = get('id') || ('row' + (i + 1));
+    const s = { name, target: get('target') === 'hotfix' ? 'hotfix' : 'release', created: get('created'), updated: get('updated'), updatedBy: get('updated_by'), done: {}, refs: {} };
+    STEPS.forEach(x => { const v = get(x.id); if (v) { const [at, ...by] = v.split('|'); s.done[x.id] = { at: at.trim(), by: by.join('|').trim() }; } });
+    REF_STEPS.forEach(x => { const v = get('ref_' + x.id); if (v) s.refs[x.id] = v; });
+    out[id] = s;
+  });
+  return out;
+}
+const cell = v => { v = String(v ?? ''); return /[",\r\n]/.test(v) || /^\s|\s$/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+function storiesToCsv(){
+  const lines = [HEADERS.join(',')];
+  Object.keys(stories).sort((a, b) => (stories[a].created || '').localeCompare(stories[b].created || '')).forEach(id => {
+    const s = stories[id];
+    lines.push([id, s.name, s.target, s.created, s.updated, s.updatedBy,
+      ...STEPS.map(x => s.done[x.id] ? `${s.done[x.id].at} | ${s.done[x.id].by}` : ''),
+      ...REF_STEPS.map(x => s.refs[x.id] || '')].map(cell).join(','));
+  });
+  return '﻿' + lines.join('\r\n') + '\r\n';   // BOM so Excel reads Arabic / special characters correctly
+}
+
+/* ---------- file access ---------- */
+const IDB = { db: null,
+  open(){ return this.db || (this.db = new Promise((res, rej) => { const r = indexedDB.open('deploy-checklist-csv', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); })); },
+  async get(k){ const d = await this.open(); return new Promise((res, rej) => { const r = d.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  async set(k, v){ const d = await this.open(); return new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+};
+const PICK = { types: [{ description: 'CSV file', accept: { 'text/csv': ['.csv'] } }] };
+
+async function readFromFile(){
+  const f = await handle.getFile();
+  lastModified = f.lastModified;
+  return csvToStories(await f.text());
+}
+async function writeToFile(){
+  const w = await handle.createWritable();
+  await w.write(storiesToCsv());
+  await w.close();
+  lastModified = (await handle.getFile()).lastModified;
+}
+async function useHandle(h, fresh){
+  handle = h; dirty = false;
+  try { await IDB.set('handle', h); } catch {}
+  $('fileName').textContent = h.name; $('reconnectBtn').hidden = true; $('retryBtn').hidden = true;
+  try {
+    if (fresh) { stories = {}; await writeToFile(); }
+    else stories = await readFromFile();
+    fileState('Loaded ' + stamp() + '. Changes save to this file automatically.');
+    note('');
+  } catch (e) { stories = {}; fileState(readError(e), true); }
+  selected = null; render();
+}
+function readError(e){
+  if (e && e.name === 'NoModificationAllowedError' || e && e.name === 'InvalidStateError') return 'The file is locked. Close it in Excel, then click Retry save.';
+  if (e && e.name === 'NotAllowedError') return 'Permission to use the file was refused.';
+  if (e && e.name === 'NotFoundError') return 'The file was moved or deleted. Open it again.';
+  return (e && e.message) || 'The file could not be read.';
+}
+
+/* Every change: read the latest file, apply the change, write it back. Keeps edits from other people. */
+function commit(op){
+  queue = queue.then(async () => {
+    busy = true;
+    try {
+      if (handle) {
+        try { stories = await readFromFile(); } catch (e) { if (!dirty) throw e; }
+        op(stories); render();
+        await writeToFile();
+        dirty = false; $('retryBtn').hidden = true;
+        fileState('Saved ' + stamp() + ' by ' + me() + '.');
+      } else {
+        op(stories); render(); dirty = true;
+        fileState(FS ? 'Not saved: no CSV file is open. Click Open CSV or New CSV.' : 'Changed. Click Download CSV to save.', FS);
+      }
+    } catch (e) {
+      dirty = true; $('retryBtn').hidden = false;
+      fileState('Not saved. ' + readError(e), true);
+    } finally { busy = false; }
+  });
+  return queue;
+}
+
+/* Pick up changes other people saved to the same file. */
+setInterval(async () => {
+  if (!handle || busy || dirty || document.hidden) return;
+  try {
+    const f = await handle.getFile();
+    if (f.lastModified !== lastModified) { lastModified = f.lastModified; stories = csvToStories(await f.text()); render(); fileState('Updated from file ' + stamp() + '.'); }
+  } catch {}
+}, 5000);
+
+$('openBtn').addEventListener('click', async () => {
+  try { const [h] = await showOpenFilePicker(PICK); await useHandle(h, false); }
+  catch (e) { if (e.name !== 'AbortError') fileState(readError(e), true); }
+});
+$('newBtn').addEventListener('click', async () => {
+  try { const h = await showSaveFilePicker({ suggestedName: 'deployment-checklist.csv', ...PICK }); await useHandle(h, true); }
+  catch (e) { if (e.name !== 'AbortError') fileState(readError(e), true); }
+});
+$('reconnectBtn').addEventListener('click', async () => {
+  const h = $('reconnectBtn')._h;
+  try { if (await h.requestPermission({ mode: 'readwrite' }) === 'granted') await useHandle(h, false); else fileState('Permission refused. Click Open CSV to pick the file.', true); }
+  catch (e) { fileState(readError(e), true); }
+});
+$('retryBtn').addEventListener('click', async () => {
+  busy = true;
+  try { await writeToFile(); dirty = false; $('retryBtn').hidden = true; fileState('Saved ' + stamp() + '.'); }
+  catch (e) { fileState('Not saved. ' + readError(e), true); }
+  finally { busy = false; }
+});
+
+/* Fallback for browsers without file access (Firefox, old Edge): load, then download. */
+$('loadBtn').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { try { stories = csvToStories(r.result); $('fileName').textContent = f.name; fileState('Loaded. Click Download CSV after changes and replace the old file.'); selected = null; dirty = false; render(); } catch (err) { fileState(readError(err), true); } e.target.value = ''; };
+  r.readAsText(f);
+});
+$('downloadBtn').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([storiesToCsv()], { type: 'text/csv' }));
+  a.download = ($('fileName').textContent.endsWith('.csv') ? $('fileName').textContent : 'deployment-checklist.csv');
+  document.body.appendChild(a); a.click(); a.remove(); dirty = false;
+  fileState('Downloaded ' + stamp() + '. Replace the old file with it.');
+});
+
+/* ---------- name ---------- */
+try { $('userName').value = localStorage.getItem('deploy-checklist-user') || ''; } catch {}
+$('userName').addEventListener('change', () => { try { localStorage.setItem('deploy-checklist-user', $('userName').value.trim()); } catch {} });
+
+/* ---------- render ---------- */
+function render(){
+  const a = document.activeElement;
+  if (a && a.matches && a.matches('#detail input[type=text]')) { pendingRender = true; return; }
+  pendingRender = false;
+  const ids = Object.keys(stories).sort((x, y) => (stories[y].created || '').localeCompare(stories[x].created || ''));
+  if (!stories[selected]) selected = ids[0] || null;
+
+  $('listLabel').textContent = ids.length ? `Stories (${ids.length})` : 'Stories';
+  $('list').innerHTML = ids.map(id => {
+    const s = stories[id], c = count(s), pct = Math.round(c / STEPS.length * 100);
+    return `<li><button class="item" data-sel="${esc(id)}" aria-current="${id===selected}">
+      <span class="nm">${esc(s.name)}</span>
+      <span class="bar"><i class="${c===STEPS.length?'full':''}" style="width:${pct}%"></i></span>
+      <span class="meta"><span>${esc(s.target)}</span><span>${c}/${STEPS.length}</span></span>
+    </button></li>`;
+  }).join('') || `<li><p class="hint">No stories yet.</p></li>`;
+
+  const d = $('detail');
+  if (!selected) {
+    d.innerHTML = `<div class="empty"><b>${handle || ids.length ? 'Add a story to start' : 'Open a CSV file to start'}</b></div>`;
+    return;
+  }
+  const s = stories[selected], c = count(s);
+  const nextStep = STEPS.find(x => !s.done[x.id]);
+  const curStage = nextStep ? nextStep.stage : null;
+
+  const stagesHtml = STAGES.map(g => {
+    const st = STEPS.filter(x => x.stage === g.id), dn = st.filter(x => s.done[x.id]).length;
+    const cls = dn === st.length ? 'done' : g.id === curStage ? 'cur' : '';
+    return `<div class="stage ${cls}"><span class="t">${esc(g.name)}</span>
+      <span class="bar"><i style="width:${dn/st.length*100}%"></i></span><span class="c">${dn}/${st.length}</span></div>`;
+  }).join('');
+
+  let n = 0;
+  const groupsHtml = STAGES.map(g => {
+    const st = STEPS.filter(x => x.stage === g.id), dn = st.filter(x => s.done[x.id]).length;
+    return `<section class="group"><div class="ghead"><h3>${esc(g.name)}</h3><span>${dn}/${st.length}</span></div><ul class="steps">` +
+      st.map(x => {
+        n++;
+        const done = s.done[x.id], isNext = nextStep && nextStep.id === x.id;
+        let extra = '';
+        if (x.ref) extra += `<input type="text" id="ref-${x.id}" data-ref="${x.id}" placeholder="${esc(x.ref)}" aria-label="${esc(x.ref)}" value="${esc(s.refs[x.id]||'')}" maxlength="300">`;
+        if (x.mail) extra += `<button class="btn small" data-copy="${x.id}">Copy</button><button class="btn small" data-view="${x.id}">${openMail===x.id?'Hide':'View'}</button>`;
+        if (done) extra += `<span class="ts">${esc(done.by || 'Unknown')} · ${esc(done.at)}</span>`;
+        let mailHtml = '';
+        if (x.mail && openMail === x.id) { const m = x.mail(s); mailHtml = `<pre class="mail" id="mail-${x.id}">${esc('To: '+m.to+'\nSubject: '+m.sub+'\n\n'+m.body)}</pre>`; }
+        return `<li class="step ${done?'done':''} ${isNext?'next':''}">
+          <input type="checkbox" id="cb-${x.id}" data-step="${x.id}" ${done?'checked':''}>
+          <div class="body">
+            <label class="ttl" for="cb-${x.id}"><span class="n">${pad(n)}</span>${esc(x.t(s))}${x.who?`<span class="pill who">${x.who}</span>`:''}${isNext?'<span class="pill nx">Next</span>':''}</label>
+            ${extra?`<div class="extra">${extra}</div>`:''}${mailHtml}
+          </div></li>`;
+      }).join('') + `</ul></section>`;
+  }).join('');
+
+  d.innerHTML = `<section class="summary">
+      <div class="sumtop">
+        <h2>${esc(s.name)}</h2>
+        <div class="acts">
+          <select id="targetSel" aria-label="Target branch" style="width:auto">
+            <option value="release" ${s.target==='release'?'selected':''}>release</option>
+            <option value="hotfix" ${s.target==='hotfix'?'selected':''}>hotfix</option>
+          </select>
+          ${confirmDel
+            ? `<span class="confirm">Delete?<button class="btn small danger" data-del="yes">Delete</button><button class="btn small" data-del="no">Keep</button></span>`
+            : `<button class="btn small danger" data-del="ask">Delete</button>`}
+        </div>
+      </div>
+      <div class="status">${nextStep ? `<b>${c}/${STEPS.length}</b> · Next: ${esc(nextStep.t(s))}` : `<b>${c}/${STEPS.length}</b> · Ready for prod`}${s.updated ? ` · Updated ${esc(s.updated)}${s.updatedBy ? ' by ' + esc(s.updatedBy) : ''}` : ''}</div>
+      <div class="stages">${stagesHtml}</div>
+    </section>${groupsHtml}`;
+}
+
+/* ---------- actions ---------- */
+function change(mut){
+  const id = selected, who = me(), now = stamp();
+  commit(st => { const s = st[id]; if (!s) { note('This story was deleted by someone else.'); return; } mut(s, who, now); s.updated = now; s.updatedBy = who; });
+}
+
+$('newForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('newName').value.trim(); if (!name) return;
+  const id = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const now = stamp(), who = me(), target = $('newTarget').value;
+  const d = new Date();
+  const created = now + ':' + pad(d.getSeconds());
+  selected = id; openMail = null; confirmDel = false; $('newName').value = '';
+  commit(st => { st[id] = { name, target, created, updated: now, updatedBy: who, done: {}, refs: {} }; });
+});
+$('list').addEventListener('click', e => {
+  const b = e.target.closest('[data-sel]'); if (!b) return;
+  selected = b.dataset.sel; openMail = null; confirmDel = false; render();
+});
+$('detail').addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.step) { const on = t.checked, sid = t.dataset.step; change((s, who, now) => { if (on) s.done[sid] = { at: now, by: who }; else delete s.done[sid]; }); }
+  else if (t.dataset.ref) { const v = t.value.trim(), rid = t.dataset.ref; change(s => { if (v) s.refs[rid] = v; else delete s.refs[rid]; }); }
+  else if (t.id === 'targetSel') { const v = t.value; change(s => { s.target = v; }); }
+});
+$('detail').addEventListener('focusout', () => setTimeout(() => { if (pendingRender) render(); }, 0));
+$('detail').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  const s = stories[selected];
+  if (t.dataset.view) { openMail = openMail === t.dataset.view ? null : t.dataset.view; render(); }
+  else if (t.dataset.copy) {
+    const m = STEPS.find(x => x.id === t.dataset.copy).mail(s);
+    const text = 'Subject: ' + m.sub + '\n\n' + m.body;
+    const ok = () => { t.textContent = 'Copied'; setTimeout(() => { t.textContent = 'Copy'; }, 1500); };
+    const fallback = () => {
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); let done = false; try { done = document.execCommand('copy'); } catch {} ta.remove();
+      if (done) ok(); else { openMail = t.dataset.copy; render(); }
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok, fallback); else fallback();
+  }
+  else if (t.dataset.del === 'ask') { confirmDel = true; render(); }
+  else if (t.dataset.del === 'no') { confirmDel = false; render(); }
+  else if (t.dataset.del === 'yes') { const id = selected; confirmDel = false; selected = null; commit(st => { delete st[id]; }); }
+});
+
+/* ---------- start ---------- */
+(async function boot(){
+  if (!FS) {
+    $('fsActs').hidden = true; $('fallbackActs').hidden = false;
+    fileState('This browser cannot save to the file directly. Use Chrome or Edge for automatic saving, or Load CSV, then Download CSV after changes.');
+  } else {
+    try {
+      const h = await IDB.get('handle');
+      if (h) {
+        const p = await h.queryPermission({ mode: 'readwrite' });
+        if (p === 'granted') await useHandle(h, false);
+        else { $('fileName').textContent = h.name; $('reconnectBtn')._h = h; $('reconnectBtn').hidden = false; fileState('Click Reopen to continue with this file, or Open CSV to pick another.'); }
+      }
+    } catch {}
+  }
+  render();
+})();
+</script>
+</body>
+</html>
