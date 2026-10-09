@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Release cycle dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ------------------------------------------------------------------
+     Theme tokens (bento)
+  ------------------------------------------------------------------ */
+  :root {
+    --bg: #F1F1ED;
+    --tile: #FFFFFF;
+    --ink: #1C1C1A;
+    --muted: #5F5F58;
+    --faint: #9A9A92;
+    --accent: #FF8A4C;
+
+    --e2e: #4F6BED;
+    --e2e-soft: #E6EAFD;
+    --uat: #8B5CF6;
+    --uat-soft: #EEE8FE;
+    --prod: #1F9D6B;
+    --prod-soft: #DDF2E8;
+
+    --ghost: #F7F7F4;
+    --radius: 22px;
+    --gap: 12px;
+    --font: "Outfit", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .bento {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--gap);
+  }
+
+  .tile {
+    background: var(--tile);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+
+  .big {
+    font-size: 56px;
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    margin: 0;
+  }
+
+  /* Tile placement */
+  .t-title    { grid-column: span 6; }
+  .t-stat     { grid-column: span 3; }
+  .t-accent   { grid-column: span 3; }
+  .t-progress { grid-column: span 6; }
+  .t-filter   { grid-column: span 3; }
+  .t-action   { grid-column: span 3; }
+  .t-cal      { grid-column: span 12; }
+
+  /* ---------------- Title tile ---------------- */
+  .t-title .subline {
+    margin: 14px 0 0;
+    color: var(--muted);
+    max-width: 60ch;
+  }
+
+  /* ---------------- Stat tile ---------------- */
+  .t-stat .stat-row { display: flex; align-items: baseline; gap: 10px; margin-top: auto; }
+  .t-stat .stat-of  { color: var(--muted); font-size: 16px; }
+
+  /* ---------------- Accent tile ---------------- */
+  .t-accent { background: var(--accent); color: var(--ink); }
+  .t-accent .label { color: rgba(28, 28, 26, 0.7); }
+  .t-accent .phase {
+    margin-top: auto;
+    font-size: 40px;
+    line-height: 1.05;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+  }
+
+  /* ---------------- Progress tile ---------------- */
+  .progress-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-top: auto;
+    margin-bottom: 14px;
+  }
+  .progress-head .name { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+  .progress-head .pct  { color: var(--muted); }
+
+  .bar {
+    height: 14px;
+    display: grid;
+    grid-template-columns: var(--cols);
+    gap: 4px;
+  }
+  .seg {
+    border-radius: 999px;
+    background: var(--c-soft);
+    overflow: hidden;
+  }
+  .seg > i {
+    display: block;
+    height: 100%;
+    width: var(--fill, 0%);
+    background: var(--c);
+    border-radius: 999px;
+  }
+  .seg.e2e  { --c: var(--e2e);  --c-soft: var(--e2e-soft); }
+  .seg.uat  { --c: var(--uat);  --c-soft: var(--uat-soft); }
+  .seg.prod { --c: var(--prod); --c-soft: var(--prod-soft); }
+
+  /* ---------------- Filter tile (prod date) ---------------- */
+  .delay { display: flex; flex-direction: column; margin-top: auto; }
+  .delay select {
+    font: inherit;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    background: var(--bg);
+    border: 0;
+    border-radius: 999px;
+    padding: 12px 40px 12px 18px;
+    cursor: pointer;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 22px) 52%, calc(100% - 17px) 52%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+    width: 100%;
+  }
+  .delay.moved select { background-color: var(--ink); color: #fff; }
+  .delay-note { font-size: 13px; color: var(--muted); margin: 8px 0 0 4px; min-height: 1.2em; }
+
+  /* ---------------- Action tile ---------------- */
+  .nav { display: flex; gap: 6px; margin-top: auto; }
+  .nav button {
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    background: var(--bg);
+    border: 0;
+    border-radius: 999px;
+    padding: 11px 8px;
+    flex: 1;
+    cursor: pointer;
+  }
+  .nav button:hover { background: #E6E6E0; }
+  .nav button.primary { background: var(--ink); color: #fff; }
+  .nav button.primary:disabled { background: var(--bg); color: var(--faint); cursor: default; }
+
+  .viewing-note { display: none; font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+  .viewing-note.show { display: block; }
+
+  button:focus-visible, select:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ---------------- Calendar tile ---------------- */
+  .cal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .cal-head h2 { margin: 0; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--bg);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .pill i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+  .cal {
+    display: grid;
+    grid-template-columns: 150px repeat(7, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .dow { font-size: 13px; color: var(--muted); text-align: center; padding-bottom: 4px; }
+
+  .row-label {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-right: 10px;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  .row-label strong { font-weight: 600; font-size: 14px; }
+  .row-label span { color: var(--muted); }
+  .row-label.ghost { opacity: 0.55; }
+
+  .cell {
+    position: relative;
+    min-height: 92px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: var(--c-soft);
+    overflow: hidden;
+  }
+  .cell.e2e  { --c: var(--e2e);  --c-soft: var(--e2e-soft); }
+  .cell.uat  { --c: var(--uat);  --c-soft: var(--uat-soft); }
+  .cell.prod { --c: var(--prod); --c-soft: var(--prod-soft); }
+
+  /* phase dot instead of a border bar */
+  .cell::before {
+    content: "";
+    position: absolute;
+    top: 14px; right: 12px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--c);
+  }
+
+  /* Neighbouring cycles: quiet */
+  .cell.ghost { background: var(--ghost); }
+  .cell.ghost::before { opacity: 0.4; }
+  .cell.ghost .num, .cell.ghost .tag { opacity: 0.6; }
+
+  .cell.weekend:not(.today) { background-image: linear-gradient(rgba(28,28,26,.025), rgba(28,28,26,.025)); }
+  .cell.past:not(.ghost):not(.today) .num { color: var(--muted); }
+
+  .cell .num {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .cell .mon { font-size: 12px; color: var(--muted); margin-left: 4px; font-weight: 500; }
+
+  .tag {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    margin-top: 10px;
+    padding: 3px 9px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.75);
+    color: var(--c);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .cell.ghost .tag { background: #fff; }
+  .tag.moved { color: var(--muted); font-style: italic; }
+  .tag.carry { margin-top: 6px; }
+  .tag.carry.prod { color: var(--prod); background: var(--prod-soft); }
+  .tag.carry.uat  { color: var(--uat);  background: var(--uat-soft); }
+  .cell.has-carry { box-shadow: inset 0 -4px 0 var(--carry-c, var(--uat)); }
+
+  /* Today: near-black active state */
+  .cell.today { background: var(--ink); color: #fff; }
+  .cell.today .num, .cell.today .mon { color: #fff; }
+  .cell.today::before { background: var(--accent); }
+  .cell.today .tag { background: rgba(255,255,255,.14); color: #fff; }
+  .cell.today .today-pill {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--accent);
+    color: var(--ink);
+    padding: 2px 9px;
+    border-radius: 999px;
+  }
+
+  /* ------------------------------------------------------------------
+     Responsive
+  ------------------------------------------------------------------ */
+  @media (max-width: 1000px) {
+    .t-title, .t-progress { grid-column: span 12; }
+    .t-stat, .t-accent, .t-filter, .t-action { grid-column: span 6; }
+  }
+
+  @media (max-width: 640px) {
+    .bento { padding: 12px; gap: 10px; }
+    .tile { padding: 18px; border-radius: 20px; }
+    .t-stat, .t-accent, .t-filter, .t-action { grid-column: span 12; }
+    .big { font-size: 44px; }
+    .t-accent .phase { font-size: 32px; }
+
+    .cal { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+    .cal .corner { display: none; }
+    .row-label { grid-column: 1 / -1; flex-direction: row; gap: 8px; padding: 10px 0 2px; }
+    .cell { min-height: 58px; padding: 7px 6px; border-radius: 12px; }
+    .cell::before { top: 8px; right: 6px; width: 6px; height: 6px; }
+    .cell .num { font-size: 16px; }
+    .cell .mon { display: block; margin: 2px 0 0; font-size: 10px; }
+    .tag { display: none; }
+    .cell.today .today-pill { display: none; }
+  }
+</style>
+</head>
+<body>
+<main class="bento">
+
+  <!-- Progress tile -->
+  <section class="tile t-progress" aria-label="Cycle progress">
+    <p class="label">Cycle progress</p>
+    <div class="progress-head">
+      <span class="name" id="progName"></span>
+      <span class="pct" id="progText"></span>
+    </div>
+    <div class="bar" id="bar" role="progressbar" aria-valuemin="0" aria-valuemax="14"></div>
+  </section>
+
+  <!-- Filter tile: production date -->
+  <section class="tile t-filter">
+    <label class="label" for="prodDelay">Prod date</label>
+    <div class="delay" id="delayWrap">
+      <select id="prodDelay"></select>
+    </div>
+  </section>
+
+  <!-- Action tile: navigation -->
+  <section class="tile t-action">
+    <p class="label">Browse cycles</p>
+    <nav class="nav" aria-label="Cycle navigation">
+      <button id="btnPrev" type="button">Previous</button>
+      <button id="btnToday" type="button" class="primary">Today</button>
+      <button id="btnNext" type="button">Next</button>
+    </nav>
+    <p class="viewing-note" id="viewingNote" role="status"></p>
+  </section>
+
+  <!-- Calendar tile -->
+  <section class="tile t-cal" aria-labelledby="calTitle">
+    <div class="cal-head">
+      <div>
+        <p class="label">Calendar</p>
+        <h2 class="big" id="calTitle">Calendar</h2>
+      </div>
+      <div class="legend">
+        <span class="pill"><i style="background:var(--e2e)"></i>E2E testing</span>
+        <span class="pill"><i style="background:var(--uat)"></i>UAT</span>
+        <span class="pill"><i style="background:var(--prod)"></i>Production deploy</span>
+        <span class="pill"><i style="background:#D6D6CF"></i>Previous / next cycle</span>
+      </div>
+    </div>
+    <div class="cal" id="cal" role="grid"></div>
+  </section>
+
+  <!-- Title tile -->
+  <section class="tile t-title">
+    <p class="label" id="todayDate"></p>
+    <h1 class="big" id="headline"></h1>
+    <p class="subline" id="subline"></p>
+  </section>
+
+  <!-- Accent tile: current phase -->
+  <section class="tile t-accent">
+    <p class="label">Current phase</p>
+    <p class="phase" id="phaseName"></p>
+  </section>
+
+  <!-- Stat tile: cycle day -->
+  <section class="tile t-stat">
+    <p class="label">Cycle day</p>
+    <div class="stat-row">
+      <span class="big" id="statNum"></span>
+      <span class="stat-of" id="statOf"></span>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ======================================================================
+   CONFIGURATION — adjust these to match your release train
+   ====================================================================== */
+const CONFIG = {
+  // Any known cycle start date (a Wednesday). Everything else is
+  // calculated forwards and backwards from this in 14-day steps.
+  anchorStart: "2026-10-07",
+
+  cycleLengthDays: 14,
+
+  // Day 0 (Wed) ... day 8 (Thu next week)  -> E2E
+  e2eDays: 9,
+  // Day 9 (Fri) ... day 12 (Mon)            -> UAT
+  uatDays: 4,
+  // Day 13 (Tue)                            -> Production deploy
+  // Day 14 (Wed)                            -> next cycle starts
+
+  // Number shown for the anchor cycle. Change it so the dashboard's
+  // cycle numbers match your own release / PI numbering.
+  anchorCycleNumber: 70,
+
+  // Production deploys moved by sign-off, by cycle number: { 70: 1, 72: 2 }.
+  // You can also change this on the page with the "Prod date" selector;
+  // choices made there are saved in this browser and take priority.
+  prodDelays: {},
+
+  // Weekend days for light shading (0 = Sun ... 6 = Sat). Fri + Sat for KSA.
+  weekendDays: [5, 6],
+};
+
+/* ======================================================================
+   Date helpers (whole-day numbers in UTC, so no timezone/DST drift)
+   ====================================================================== */
+const MS_DAY = 86400000;
+
+function ymdToDay(ymd) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return Math.floor(Date.UTC(y, m - 1, d) / MS_DAY);
+}
+function localTodayDay() {
+  const t = new Date();
+  return Math.floor(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()) / MS_DAY);
+}
+function dayToDate(n) { return new Date(n * MS_DAY); }
+function weekday(n) { return dayToDate(n).getUTCDay(); }
+
+const fmtLong  = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "long",  day: "numeric", month: "long", year: "numeric" });
+const fmtShort = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+const fmtDM    = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", day: "numeric", month: "short" });
+const fmtMonthYear = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", month: "long", year: "numeric" });
+const fmtMon   = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", month: "short" });
+const fmtDow   = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short" });
+
+function relDays(diff) {
+  if (diff === 0) return "today";
+  if (diff === 1) return "tomorrow";
+  if (diff === -1) return "yesterday";
+  return diff > 0 ? `in ${diff} days` : `${-diff} days ago`;
+}
+
+/* ======================================================================
+   Cycle model
+   ====================================================================== */
+const ANCHOR = ymdToDay(CONFIG.anchorStart);
+const L = CONFIG.cycleLengthDays;
+const UAT_START = CONFIG.e2eDays;                       // offset 9
+const PROD_DAY  = CONFIG.e2eDays + CONFIG.uatDays;      // offset 13 (planned)
+
+function cycleIndexOf(day) { return Math.floor((day - ANCHOR) / L); }
+function cycleStart(idx)   { return ANCHOR + idx * L; }
+function cycleNumber(idx)  { return idx + CONFIG.anchorCycleNumber; }
+
+/* ---- Production delays ------------------------------------------------
+   A delay only moves that cycle's production deploy (UAT runs longer).
+   The next cycle still starts on its normal Wednesday.
+   Saved delays come from CONFIG.prodDelays plus anything set on the page
+   (kept in this browser's localStorage). */
+const DELAY_KEY = "releaseDashboard.prodDelays";
+
+function loadSavedDelays() {
+  try { return JSON.parse(localStorage.getItem(DELAY_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function saveDelays(obj) {
+  try { localStorage.setItem(DELAY_KEY, JSON.stringify(obj)); } catch (e) { /* storage unavailable */ }
+}
+let savedDelays = loadSavedDelays();
+
+function delayOf(idx) {
+  const n = String(cycleNumber(idx));
+  if (n in savedDelays) return savedDelays[n];
+  return CONFIG.prodDelays[n] || 0;
+}
+function setDelay(idx, days) {
+  savedDelays[String(cycleNumber(idx))] = days;
+  saveDelays(savedDelays);
+}
+
+function prodOffset(idx) { return PROD_DAY + delayOf(idx); }      // offset of actual prod day
+function prodDate(idx)   { return cycleStart(idx) + prodOffset(idx); }
+function plannedProdDate(idx) { return cycleStart(idx) + PROD_DAY; }
+
+function phaseOf(offset, idx) {
+  if (offset < UAT_START) return "e2e";
+  if (offset < prodOffset(idx)) return "uat";
+  return "prod";
+}
+
+function movedText(idx) {
+  const d = delayOf(idx);
+  return d ? ` (moved ${d} day${d > 1 ? "s" : ""})` : "";
+}
+
+const PHASE_NAME  = { e2e: "E2E testing", uat: "UAT", prod: "Production deploy" };
+const PHASE_COLOR = { e2e: "var(--e2e)", uat: "var(--uat)", prod: "var(--prod)" };
+
+/* ======================================================================
+   State
+   ====================================================================== */
+function resolveToday() {
+  const q = new URLSearchParams(location.search).get("date");
+  if (q && /^\d{4}-\d{2}-\d{2}$/.test(q)) return { day: ymdToDay(q), simulated: true };
+  return { day: localTodayDay(), simulated: false };
+}
+
+let TODAY = resolveToday();
+let todayIdx = cycleIndexOf(TODAY.day);
+let focusIdx = todayIdx;
+
+/* ======================================================================
+   Rendering
+   ====================================================================== */
+const $ = (id) => document.getElementById(id);
+
+function renderHeader() {
+  const s = cycleStart(todayIdx);
+  const offset = TODAY.day - s;
+  const phase = phaseOf(offset, todayIdx);
+  const total = prodOffset(todayIdx) + 1;
+
+  $("todayDate").textContent =
+    fmtLong.format(dayToDate(TODAY.day)) + (TODAY.simulated ? " (preview date)" : "");
+
+  $("headline").textContent = `Cycle ${cycleNumber(todayIdx)}`;
+  $("phaseName").textContent = phase === "prod" ? "Production deploy" : PHASE_NAME[phase];
+  $("statNum").textContent = offset + 1;
+  $("statOf").textContent = `of ${total} days`;
+
+  let sub;
+  if (phase === "e2e") {
+    const d = s + UAT_START;
+    sub = `Features merged on ${fmtShort.format(dayToDate(s))} are being tested in E2E. ` +
+          `Moves to UAT on ${fmtShort.format(dayToDate(d))}, ${relDays(d - TODAY.day)}.`;
+  } else if (phase === "uat") {
+    const d = prodDate(todayIdx);
+    sub = `Features merged on ${fmtShort.format(dayToDate(s))} are in UAT. ` +
+          `Production deploy on ${fmtShort.format(dayToDate(d))}${movedText(todayIdx)}, ${relDays(d - TODAY.day)}.`;
+  } else {
+    sub = `Features merged on ${fmtShort.format(dayToDate(s))} go to production today. ` +
+          `Cycle ${cycleNumber(todayIdx + 1)} starts tomorrow with the next merge to master.`;
+  }
+
+  // Previous cycle still running because its prod deploy was moved
+  const prev = todayIdx - 1;
+  const prevProd = prodDate(prev);
+  if (TODAY.day < prevProd) {
+    sub += ` Cycle ${cycleNumber(prev)} is still in UAT, production moved to ${fmtShort.format(dayToDate(prevProd))}.`;
+  } else if (TODAY.day === prevProd && delayOf(prev) > 0) {
+    sub += ` Cycle ${cycleNumber(prev)} deploys to production today${movedText(prev)}.`;
+  }
+  $("subline").textContent = sub;
+
+  const note = $("viewingNote");
+  if (focusIdx !== todayIdx) {
+    note.textContent = `You are viewing cycle ${cycleNumber(focusIdx)}. Select Today to return to the current cycle.`;
+    note.classList.add("show");
+  } else {
+    note.classList.remove("show");
+  }
+  $("btnToday").disabled = focusIdx === todayIdx;
+}
+
+function renderProgress() {
+  const s = cycleStart(focusIdx);
+  const pOff = prodOffset(focusIdx);
+  const total = pOff + 1;
+  // days completed in the focused cycle (today counts as in progress)
+  const done = Math.max(0, Math.min(total, TODAY.day - s + 1));
+
+  $("progName").textContent = `Cycle ${cycleNumber(focusIdx)}`;
+
+  const parts = [
+    { cls: "e2e",  from: 0,         len: UAT_START },
+    { cls: "uat",  from: UAT_START, len: pOff - UAT_START },
+    { cls: "prod", from: pOff,      len: 1 },
+  ];
+  const bar = $("bar");
+  bar.style.setProperty("--cols", parts.map(p => p.len + "fr").join(" "));
+  bar.innerHTML = parts.map(p => {
+    const fill = Math.max(0, Math.min(1, (done - p.from) / p.len)) * 100;
+    return `<div class="seg ${p.cls}" title="${PHASE_NAME[p.cls]}"><i style="--fill:${fill}%"></i></div>`;
+  }).join("");
+  bar.setAttribute("aria-valuemax", total);
+  bar.setAttribute("aria-valuenow", done);
+
+  let text;
+  if (done <= 0) text = `Starts ${fmtShort.format(dayToDate(s))}`;
+  else if (TODAY.day > s + pOff) text = "Completed";
+  else text = `Day ${done} of ${total}`;
+  $("progText").textContent = text;
+  bar.setAttribute("aria-valuetext", text);
+
+  // Production date selector for the focused cycle
+  const sel = $("prodDelay");
+  const planned = plannedProdDate(focusIdx);
+  sel.innerHTML = [0, 1, 2].map(d => {
+    const label = d === 0
+      ? `${fmtShort.format(dayToDate(planned))} (planned)`
+      : `${fmtShort.format(dayToDate(planned + d))} (+${d} day${d > 1 ? "s" : ""})`;
+    return `<option value="${d}">${label}</option>`;
+  }).join("");
+  sel.value = String(delayOf(focusIdx));
+  $("delayWrap").classList.toggle("moved", delayOf(focusIdx) > 0);
+}
+
+function renderCalendar() {
+  const cal = $("cal");
+  cal.innerHTML = "";
+  const s = cycleStart(focusIdx);
+
+  // Window: last week of previous cycle -> first week of next cycle,
+  // widened to full Sunday-to-Saturday weeks.
+  const from = s - 7;
+  const to   = s + L + 6;
+  const gridStart = from - weekday(from);          // Sunday on/before
+  const gridEnd   = to + (6 - weekday(to));        // Saturday on/after
+
+  // Month title: today's month on the current cycle, otherwise the
+  // month the selected cycle mostly falls in.
+  const monthDay = focusIdx === todayIdx ? TODAY.day : s + 6;
+  $("calTitle").textContent = fmtMonthYear.format(dayToDate(monthDay));
+
+  // Weekday header: Sun ... Sat
+  const corner = document.createElement("div");
+  corner.className = "corner";
+  cal.appendChild(corner);
+  for (let i = 0; i < 7; i++) {
+    const d = document.createElement("div");
+    d.className = "dow";
+    d.textContent = fmtDow.format(dayToDate(gridStart + i));
+    cal.appendChild(d);
+  }
+
+  for (let w = gridStart; w <= gridEnd; w += 7) {
+    // Row label: week range + cycles in it
+    const idxs = [...new Set([0, 6].map(k => cycleIndexOf(w + k)))];
+    const hasFocus = idxs.includes(focusIdx);
+    const lbl = document.createElement("div");
+    lbl.className = "row-label" + (hasFocus ? "" : " ghost");
+    lbl.innerHTML =
+      `<strong>${fmtDM.format(dayToDate(w))} to ${fmtDM.format(dayToDate(w + 6))}</strong>` +
+      `<span>Cycle ${idxs.map(cycleNumber).join(" and ")}</span>`;
+    cal.appendChild(lbl);
+
+    for (let i = 0; i < 7; i++) {
+      const day = w + i;
+      const idx = cycleIndexOf(day);
+      const offset = day - cycleStart(idx);
+      const phase = phaseOf(offset, idx);
+
+      const c = document.createElement("div");
+      c.className = `cell ${phase}`;
+      if (idx !== focusIdx) c.classList.add("ghost");
+      if (offset === 0) c.classList.add("cycle-start");
+      if (CONFIG.weekendDays.includes(weekday(day))) c.classList.add("weekend");
+      if (day < TODAY.day) c.classList.add("past");
+      if (day === TODAY.day) c.classList.add("today");
+      c.setAttribute("role", "gridcell");
+
+      const date = dayToDate(day);
+      const showMonth = day === gridStart || date.getUTCDate() === 1;
+
+      // This cycle's own milestone
+      let tag = "", tagCls = "";
+      if (offset === 0)                       tag = `Cycle ${cycleNumber(idx)} starts: merge + E2E deploy`;
+      else if (offset === UAT_START)          tag = "Move to UAT";
+      else if (offset === prodOffset(idx))    tag = "Prod deploy";
+      else if (offset === PROD_DAY && delayOf(idx) > 0) {
+        tag = `Prod moved to ${fmtShort.format(dayToDate(prodDate(idx)))}`;
+        tagCls = " moved";
+      }
+
+      // Previous cycle overflowing into this day (delayed prod)
+      let carry = "";
+      const p = idx - 1;
+      const pOffset = day - cycleStart(p);
+      if (pOffset >= L && pOffset <= prodOffset(p)) {
+        carry = pOffset === prodOffset(p)
+          ? `<div class="tag carry prod">Cycle ${cycleNumber(p)} prod deploy</div>`
+          : `<div class="tag carry uat">Cycle ${cycleNumber(p)} UAT</div>`;
+        c.classList.add("has-carry");
+        c.style.setProperty("--carry-c", pOffset === prodOffset(p) ? "var(--prod)" : "var(--uat)");
+      }
+
+      c.innerHTML =
+        `<span class="num">${date.getUTCDate()}</span>` +
+        (showMonth ? `<span class="mon">${fmtMon.format(date)}</span>` : "") +
+        (tag ? `<div class="tag${tagCls}">${tag}</div>` : "") +
+        carry +
+        (day === TODAY.day ? `<span class="today-pill">Today</span>` : "");
+
+      const carryText = carry ? `, ${carry.replace(/<[^>]+>/g, "")}` : "";
+      c.setAttribute("aria-label",
+        `${fmtLong.format(date)}, cycle ${cycleNumber(idx)}, ${PHASE_NAME[phase]}` +
+        (tag ? `, ${tag}` : "") + carryText + (day === TODAY.day ? ", today" : ""));
+      c.title = `Cycle ${cycleNumber(idx)}: ${PHASE_NAME[phase]}` + carryText;
+      cal.appendChild(c);
+    }
+  }
+}
+
+function render() {
+  renderHeader();
+  renderProgress();
+  renderCalendar();
+}
+
+/* ======================================================================
+   Events
+   ====================================================================== */
+$("btnPrev").addEventListener("click", () => { focusIdx--; render(); });
+$("btnNext").addEventListener("click", () => { focusIdx++; render(); });
+$("btnToday").addEventListener("click", () => { focusIdx = todayIdx; render(); });
+$("prodDelay").addEventListener("change", (e) => {
+  setDelay(focusIdx, Number(e.target.value));
+  render();
+});
+
+
+// Roll over automatically at midnight if the page is left open
+if (!TODAY.simulated) {
+  setInterval(() => {
+    const now = localTodayDay();
+    if (now !== TODAY.day) {
+      const wasOnToday = focusIdx === todayIdx;
+      TODAY = { day: now, simulated: false };
+      todayIdx = cycleIndexOf(now);
+      if (wasOnToday) focusIdx = todayIdx;
+      render();
+    }
+  }, 60 * 1000);
+}
+
+render();
+</script>
+</body>
+</html>
